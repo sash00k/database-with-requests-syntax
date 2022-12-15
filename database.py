@@ -84,6 +84,7 @@ def get_entities(db: TextIO) -> str:
         else:
             raise ValueError(f'Incorrect record in database: {dict_length} fields get')
         init_dict['person_id'] = init_dict.pop('id')
+        # # LOGS
         # entity = entity_class.init_from_json(init_dict)
         # print(entity_class, entity)
         yield entity_class.init_from_json(init_dict)
@@ -92,7 +93,8 @@ def just_read(db: TextIO, output: TextIO) -> None:
     for entity in get_entities(db):
         print(entity, file=output)
 
-def field_is_arg(field: str, arg, db: TextIO, output: TextIO) -> None:
+def field_is_arg(field: str, arg: str, db: TextIO, output: TextIO) -> None:
+    arg = arg.strip('"')
     for entity in get_entities(db):
         if hasattr(entity, field):
             if arg in (str(getattr(entity, field)), 'set'):
@@ -101,23 +103,24 @@ def field_is_arg(field: str, arg, db: TextIO, output: TextIO) -> None:
 def field_in_args(field: str, args: list, db: TextIO, output: TextIO) -> None:
     collection = set(map(lambda x: x.strip('{}", '), args))
     for entity in get_entities(db):
-        if str(getattr(entity, field)) in collection:
+        if hasattr(entity, field) and str(getattr(entity, field)) in collection:
             print(entity, file=output)
 
 def field_contains_arg(field: str, arg, db: TextIO, output: TextIO) -> None:
+    arg = arg.strip('"')
     for entity in get_entities(db):
-        if arg in getattr(entity, field):
+        if hasattr(entity, field) and str(arg) in str(getattr(entity, field)):
             print(entity, file=output)
 
 def solution(requests: TextIO, db_name: str, output: TextIO) -> None:
     for request in requests.readlines():
         with open(db_name, 'r') as db:
-            tokens = request.split()
-            if len(tokens) < 3:
-                cond = '<no commands>'
-            else:
-                field, cond, args = tokens[3], tokens[4], tokens[5:]
             try:
+                tokens = request.split()
+                if tokens == ['get', 'records']:
+                    cond = '<no commands>'
+                else:
+                    field, cond, args = tokens[3], tokens[4], tokens[5:]
                 match cond:
                     case '<no commands>':
                         just_read(db=db, output=output)
@@ -130,7 +133,9 @@ def solution(requests: TextIO, db_name: str, output: TextIO) -> None:
                     case _:
                         print(f'unknown command "{request}"', file=output)
             except ValueError as invalid_input:
-                print(invalid_input)
+                print(f'Invalid input: {invalid_input}')
+            except IndexError as invalid_input:
+                print(f'Invalid input (maybe command is too short): {invalid_input}')
 
 
 if __name__ == '__main__':
@@ -138,3 +143,4 @@ if __name__ == '__main__':
     for line in sys.stdin:
         solution(io.StringIO(line.strip()), 'db.txt', sys.stdout)
         print('$ ', end='')
+
